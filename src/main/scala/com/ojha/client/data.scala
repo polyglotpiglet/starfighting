@@ -5,15 +5,46 @@ package com.ojha.client
  */
 
 import org.joda.time.DateTime
-import spray.json.DefaultJsonProtocol
+import spray.json._
 
 case class Fill(price: Int, qty: Int, ts: DateTime)
 
-case class Response(ok: Boolean, error: String)
 
-object ResponseProtocol extends DefaultJsonProtocol {
-  implicit val format = jsonFormat2(Response)
+trait StarFighterResponse {
+  val ok: Boolean
+  val error: Option[String]
 }
+
+case class VanillaResponse(override val ok: Boolean, override val error: Option[String] = None) extends StarFighterResponse {
+}
+
+object VanillaResponseProtocol extends DefaultJsonProtocol {
+  implicit val format = jsonFormat2(VanillaResponse)
+}
+
+case class VenueResponse(override val ok: Boolean, override val error: Option[String] = None, venue: Option[String] = None) extends StarFighterResponse
+
+object VenueResponseProtocol extends DefaultJsonProtocol {
+  implicit object format extends RootJsonFormat[VenueResponse] {
+    def write(r: VenueResponse) = JsObject {
+      "ok" -> JsBoolean(r.ok)
+      "error" -> JsString(r.error.getOrElse(""))
+      "venue" -> JsString(r.venue.getOrElse(""))
+    }
+
+    def read(value: JsValue) = {
+      val fields = value.asJsObject.fields
+      (fields.getOrElse("ok", deserializationError("Need mandatory field ok in VenueReponse")), fields.get("error"), fields.get("venue")) match {
+        case (JsBoolean(b), Some(JsString(e)), Some(JsString(v))) => VenueResponse(b, Some(e), Some(v))
+        case (JsBoolean(b), None, Some(JsString(v))) => VenueResponse(b, None, Some(v))
+        case (JsBoolean(b), Some(JsString(e)), None) => VenueResponse(b, Some(e), None)
+        case _ => deserializationError("Cannot deserialize dodgy VenueResponse")
+      }
+    }
+  }
+}
+
+
 
 //case class Response(ok: Boolean,
 //                    symbol: String,

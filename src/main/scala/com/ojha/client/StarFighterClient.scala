@@ -7,6 +7,7 @@ import spray.json._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 
+
 /**
  * Created by alexandra on 04/01/16.
  */
@@ -22,12 +23,21 @@ class StarFighterClient(baseurl: String) extends LazyLogging {
 
   logger.info(s"Started StarFighterClient with baseurl $baseurl")
 
-  def heartBeat(): Future[Response] = {
-    import com.ojha.client.ResponseProtocol._
+  def heartBeat(): Future[VanillaResponse] = {
+    import com.ojha.client.VanillaResponseProtocol._
     val request = url(s"$baseurl/heartbeat")
     logger.info(s"Heartbeating $baseurl/heartbeat")
     val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[Response])
+    result.map(_.getResponseBody.parseJson.convertTo[VanillaResponse])
+  }
+
+  def heartBeatVenue(venue: String): Future[VenueResponse] = {
+    import com.ojha.client.VenueResponseProtocol._
+    val urlPath = s"$baseurl/venues/$venue/heartbeat"
+    val request = url(urlPath)
+    logger.info(s"Heartbeating venue $urlPath")
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[VenueResponse])
   }
 
   def execute(order: Order) = {

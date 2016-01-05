@@ -9,7 +9,6 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import org.scalatest.concurrent.ScalaFutures
 
-import com.ojha.client.ResponseProtocol._
 import spray.json._
 
 /**
@@ -37,7 +36,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
       .willReturn(
         aResponse()
           .withStatus(200)
-          .withBody(Response(ok = true, "").toJson.compactPrint)))
+          .withBody("{\n  \"ok\": true,\n  \"error\": \"\"\n}")))
 
     val sut = StarFighterClient()
 
@@ -46,12 +45,73 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     // then
     whenReady(response) { r =>
-      r should equal(Response(ok = true, ""))
+      r should equal(VanillaResponse(ok = true, Some("")))
+    }
+  }
+
+  it should "return a response on venue heartbeat" in {
+
+    // given
+    val path = "/venues/TESTEX/heartbeat"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": true,\n  \"venue\": \"TESTEX\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.heartBeatVenue("TESTEX")
+
+    // then
+    whenReady(response) { r =>
+      r should equal(VenueResponse(ok = true, None, Some("TESTEX")))
+    }
+  }
+
+  it should "return a response on venue heartbeat timeout" in {
+    // given
+    val path = "/venues/TESTEX/heartbeat"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(500)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"The venue appears to be non-responsive even though its server is up.\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.heartBeatVenue("TESTEX")
+
+    // then
+    whenReady(response) { r =>
+      r should equal(VenueResponse(ok = false, Some("The venue appears to be non-responsive even though its server is up."), None))
+    }
+  }
+
+  it should "return a response on venue heartbeat when venue doesnt exist (404)" in {
+    // given
+    val path = "/venues/TESTEX/heartbeat"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(404)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"No venue exists with the symbol TESTEX.\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.heartBeatVenue("TESTEX")
+
+    // then
+    whenReady(response) { r =>
+      r should equal(VenueResponse(ok = false, Some("No venue exists with the symbol TESTEX."), None))
     }
   }
 
 
-  it should "post an order to starfighter" in {
+  ignore should "post an order to starfighter" in {
     // given
     val sut = StarFighterClient()
     val order = Order("act", "HPYEX", "IBM", 30000, 100, Directions.Buy, OrderTypes.Limit)
