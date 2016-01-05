@@ -12,6 +12,8 @@ libraryDependencies ++= {
     "net.databinder.dispatch"     %% "dispatch-core"    % "0.11.2",
     "com.typesafe"                %  "config"           % "1.3.0",
     "io.spray"                    %%  "spray-json"      % "1.3.2",
+    "com.typesafe.scala-logging"  %% "scala-logging"    % "3.1.0",
+    "ch.qos.logback"              %  "logback-classic"  % "1.1.2",
     "org.scalatest"               %% "scalatest"        % "2.2.4"   % "test",
     "com.github.tomakehurst"      %  "wiremock"         % "1.33"    % "test"
   )

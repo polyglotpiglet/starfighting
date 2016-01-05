@@ -1,5 +1,6 @@
 package com.ojha.client
 
+import com.typesafe.scalalogging.LazyLogging
 import dispatch._
 
 import spray.json._
@@ -17,17 +18,25 @@ object StarFighterClient extends Configurable {
   }
 }
 
-class StarFighterClient(baseurl: String) {
+class StarFighterClient(baseurl: String) extends LazyLogging {
+
+  logger.info(s"Started StarFighterClient with baseurl $baseurl")
 
   def heartBeat(): Future[Response] = {
     import com.ojha.client.ResponseProtocol._
     val request = url(s"$baseurl/heartbeat")
+    logger.info(s"Heartbeating $baseurl/heartbeat")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[Response])
   }
 
   def execute(order: Order) = {
     val request = Request(order)
+  }
+
+  def shutdown(): Unit = {
+    logger.info("Shutting down StarFighterClient")
+    dispatch.Http.shutdown()
   }
 
 

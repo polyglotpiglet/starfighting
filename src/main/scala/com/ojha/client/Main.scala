@@ -13,4 +13,6 @@ object Main extends App {
     println(r.toString)
   }
 
+  client.shutdown()
+
 }
