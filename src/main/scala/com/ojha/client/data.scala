@@ -219,7 +219,23 @@ object OrderBookDataProtocol extends DefaultJsonProtocol {
   import BidProtocol._
   import AskProtocol._
   import DateTimeProtocol._
-  implicit val orderBookDataFormat: RootJsonFormat[OrderBookData] = jsonFormat5(OrderBookData)
+  implicit object orderBookDataFormat extends RootJsonFormat[OrderBookData] {
+    override def write(obj: OrderBookData): JsValue = JsObject {
+      "venue" -> JsString(obj.venue)
+      "symbol" -> JsString(obj.symbol)
+      "bids" -> obj.bids.toJson
+      "asks" -> obj.asks.toJson
+      "ts" -> obj.ts.toJson
+    }
+
+    override def read(json: JsValue): OrderBookData = {
+      val fields = json.asJsObject.fields
+      (fields.get("venue"), fields.get("symbol"), fields.get("bids"), fields.get("asks"), fields.get("ts"))
+      //piglet
+      null
+    }
+  }
+
 }
 
 case class OrderBookResponse(override val ok: Boolean,
@@ -241,7 +257,12 @@ object OrderBookResponseProtocol extends DefaultJsonProtocol {
       val fields = json.asJsObject.fields
       (fields.get("ok"), fields.get("error")) match {
         case (Some(JsBoolean(b)), Some(JsString(e))) => OrderBookResponse(b, Left(ErrorMessage(e)))
-        case (Some(JsBoolean(b)), None) => OrderBookResponse(b, Right(json.convertTo[OrderBookData]))
+        case (Some(JsBoolean(b)), None) => {
+          val dataFields = fields.filter(_._1 != "ok")
+          val dataObj = JsObject(dataFields)
+          val data = dataObj.convertTo[OrderBookData]
+          OrderBookResponse(b, Right(data))
+        }
         case _ => deserializationError("Cannot deserialze OrderBookResponse")
       }
     }

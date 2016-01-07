@@ -178,7 +178,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val sut = StarFighterClient()
 
     // when
-    val response = sut.orderBookForStockOnVenue("TESTEX", "FOOBAR")
+    val response = sut.orderBookForStockOnVenue("TESTEX", "BAR")
 
     // then
     whenReady(response) { r =>
@@ -206,7 +206,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val sut = StarFighterClient()
 
     // when
-    val response = sut.orderBookForStockOnVenue("TESTEX", "FOOBAR")
+    val response = sut.orderBookForStockOnVenue("TESTEX", "BAR")
 
 
     // then
