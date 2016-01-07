@@ -4,13 +4,14 @@ package com.ojha.client
  * Created by alexandra on 04/01/16.
  */
 
-import com.ojha.client.SymbolProtocol._
 import org.joda.time.DateTime
 import spray.json._
+import DefaultJsonProtocol._
 
 case class Fill(price: Int, qty: Int, ts: DateTime)
 
 /* The basic response format with ok and optional error message */
+
 trait StarFighterResponse {
   val ok: Boolean
   val data: Either[ErrorMessage, Data]
@@ -20,18 +21,43 @@ case class ErrorMessage(msg: String)
 
 trait Data
 
+/* -----------------------------------------------------------------
+    API Heartbeating data model and serialisation protocols
+   ----------------------------------------------------------------- */
+
 case class Heartbeat(override val ok: Boolean, override val data: Either[ErrorMessage, Data]) extends StarFighterResponse
 
 /* Json formatting for the Heartbeat */
 object HeartbeatProtocol extends DefaultJsonProtocol {
-  implicit val format = jsonFormat2(Heartbeat)
+  implicit object heartbeatFormat extends RootJsonFormat[Heartbeat] {
+    override def read(json: JsValue): Heartbeat = {
+      val fields = json.asJsObject.fields
+      val ok = fields.getOrElse("ok", deserializationError("No ok in Heartbeat"))
+      val error = fields.get("error")
+      (ok, error) match {
+        case (JsBoolean(b), Some(JsString(e))) => Heartbeat(b, Left(ErrorMessage(e)))
+        case (JsBoolean(b), None) => Heartbeat(b, Left(ErrorMessage("")))
+        case _ => deserializationError("Cannot deserialize heartbeat")
+      }
+    }
+
+    override def write(obj: Heartbeat): JsValue = JsObject {
+        "ok" -> JsBoolean(obj.ok)
+        obj.data match {
+          case Left(e) => "error" -> JsString(e.msg)
+          case _ => serializationError("Unable to serialize Heartbeat")
+        }
+      }
+  }
 }
 
-
-/* Response object for heartbeating the venue api */
+/* -----------------------------------------------------------------
+    Venue Heartbeating data model and serialisation protocols
+   ----------------------------------------------------------------- */
 
 case class VenueHeartbeatData(venue: String) extends Data
-case class VenueHeartbeatResponse(override val ok: Boolean, override val data: Either[ErrorMessage, VenueHeartbeatData]) extends StarFighterResponse
+case class VenueHeartbeatResponse(override val ok: Boolean,
+                                  override val data: Either[ErrorMessage, VenueHeartbeatData]) extends StarFighterResponse
 
 object VenueHeartbeatDataProtocol {
   implicit val symbolFormat: RootJsonFormat[VenueHeartbeatData] = jsonFormat1(VenueHeartbeatData)
@@ -55,55 +81,65 @@ object VenueHeartbeatResponseProtocol extends DefaultJsonProtocol {
       val ok: JsValue = fields.getOrElse("ok", deserializationError("Need mandatory field ok in VenueReponse"))
       val error = fields.get("error")
       val venue = fields.get("venue")
-      null
+      (ok, error, venue) match {
+        case (JsBoolean(b), Some(JsString(e)), None) => VenueHeartbeatResponse(b, Left(ErrorMessage(e)))
+        case (JsBoolean(b), None, Some(JsString(v))) => VenueHeartbeatResponse(b, Right(VenueHeartbeatData(v)))
+        case _ => deserializationError("Could not read VenueHeartBeatResponse")
 
+      }
     }
   }
 }
 
-/* Response object for info about stocks on a particular venue */
-case class StocksInfoResponse(override val ok: Boolean, symbols: Option[Seq[Symbol]] = None) extends StarFighterResponse
 
-/* Basic info about a particular symbol */
-case class Symbol(name: String, symbol: String)
+/* -----------------------------------------------------------------
+    Stocks info data model and serialisation protocols
+   ----------------------------------------------------------------- */
 
-object StocksInfoProtocol {
-  implicit object format extends RootJsonFormat[StocksInfoResponse] {
-
-    import SymbolProtocol._
-    override def write(obj: StocksInfoResponse): JsValue = JsObject {
-      "ok" -> JsBoolean(obj.ok)
-      "symbols" -> JsArray(obj.symbols.map(_.map(_.toJson).toVector).getOrElse(Vector()))
-    }
-
-    override def read(json: JsValue): StocksInfoResponse = {
-      val fields = json.asJsObject.fields
-      val ok = fields.getOrElse("ok", deserializationError("StockInfoResponse missing mandatory ok")) match {
-        case JsBoolean(s) => s
-        case _ => deserializationError("nable to deserialize ok in StockInfoResponse")
-      }
-      val error: Option[String] = fields.get("error") match {
-        case Some(JsString(s)) => Some(s)
-        case None => None
-        case _ => deserializationError("Unable to deserialize error in StockInfoResponse")
-      }
-
-      val symbols: Option[Vector[Symbol]] = fields.get("symbols") match {
-        case Some(JsArray(v)) => Some(v.map {
-          case o: JsObject => o.convertTo[Symbol]
-          case _ => deserializationError("Unable to deserialize seq of symbols in StockInfo")
-        })
-        case _ => None
-      }
-      StocksInfoResponse(ok, symbols)
-
-    }
-  }
-}
-
-object SymbolProtocol extends DefaultJsonProtocol  {
-  implicit val symbolFormat: RootJsonFormat[Symbol] = jsonFormat2(Symbol)
-}
+//
+///* Response object for info about stocks on a particular venue */
+//case class StocksInfoResponse(override val ok: Boolean, symbols: Option[Seq[Symbol]] = None) extends StarFighterResponse
+//
+///* Basic info about a particular symbol */
+//case class Symbol(name: String, symbol: String)
+//
+//object StocksInfoProtocol {
+//  implicit object format extends RootJsonFormat[StocksInfoResponse] {
+//
+//    import SymbolProtocol._
+//    override def write(obj: StocksInfoResponse): JsValue = JsObject {
+//      "ok" -> JsBoolean(obj.ok)
+//      "symbols" -> JsArray(obj.symbols.map(_.map(_.toJson).toVector).getOrElse(Vector()))
+//    }
+//
+//    override def read(json: JsValue): StocksInfoResponse = {
+//      val fields = json.asJsObject.fields
+//      val ok = fields.getOrElse("ok", deserializationError("StockInfoResponse missing mandatory ok")) match {
+//        case JsBoolean(s) => s
+//        case _ => deserializationError("nable to deserialize ok in StockInfoResponse")
+//      }
+//      val error: Option[String] = fields.get("error") match {
+//        case Some(JsString(s)) => Some(s)
+//        case None => None
+//        case _ => deserializationError("Unable to deserialize error in StockInfoResponse")
+//      }
+//
+//      val symbols: Option[Vector[Symbol]] = fields.get("symbols") match {
+//        case Some(JsArray(v)) => Some(v.map {
+//          case o: JsObject => o.convertTo[Symbol]
+//          case _ => deserializationError("Unable to deserialize seq of symbols in StockInfo")
+//        })
+//        case _ => None
+//      }
+//      StocksInfoResponse(ok, symbols)
+//
+//    }
+//  }
+//}
+//
+//object SymbolProtocol extends DefaultJsonProtocol  {
+//  implicit val symbolFormat: RootJsonFormat[Symbol] = jsonFormat2(Symbol)
+//}
 
 //case class OrderBook(override val ok: Boolean,
 //                     override val error: Option[String] = None

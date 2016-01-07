@@ -31,23 +31,23 @@ class StarFighterClient(baseurl: String) extends LazyLogging {
     result.map(_.getResponseBody.parseJson.convertTo[Heartbeat])
   }
 
-  def heartBeatVenue(venue: String): Future[StarFighterResponse] = {
-    import com.ojha.client.VenueResponseProtocol._
+  def heartBeatVenue(venue: String): Future[VenueHeartbeatResponse] = {
+    import com.ojha.client.VenueHeartbeatResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/heartbeat"
     val request = url(urlPath)
     logger.info(s"Heartbeating venue $urlPath")
     val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[VenueResponse])
+    result.map(_.getResponseBody.parseJson.convertTo[VenueHeartbeatResponse])
   }
-  
-  def stocksOnAVenue(venue: String): Future[StarFighterResponse] = {
-    import com.ojha.client.StocksInfoProtocol._
-    val urlPath = s"$baseurl/venues/$venue/stocks"
-    val request = url(urlPath)
-    logger.info(s"Checking stocks on venue $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[StocksInfoResponse])
-  }
+//
+//  def stocksOnAVenue(venue: String): Future[StarFighterResponse] = {
+//    import com.ojha.client.StocksInfoProtocol._
+//    val urlPath = s"$baseurl/venues/$venue/stocks"
+//    val request = url(urlPath)
+//    logger.info(s"Checking stocks on venue $urlPath")
+//    val result = Http(request)
+//    result.map(_.getResponseBody.parseJson.convertTo[StocksInfoResponse])
+//  }
 
   def execute(order: Order) = {
     val request = Request(order)
