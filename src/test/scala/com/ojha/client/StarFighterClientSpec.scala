@@ -11,6 +11,8 @@ import org.scalatest.concurrent.ScalaFutures
 
 import spray.json._
 
+import scala.concurrent.Future
+
 /**
  * Created by alexandra on 04/01/16.
  */
@@ -41,11 +43,11 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val sut = StarFighterClient()
 
     // when
-    val response = sut.heartBeat()
+    val response: dispatch.Future[Heartbeat] = sut.heartBeat()
 
     // then
     whenReady(response) { r =>
-      r should equal(VanillaResponse(ok = true, Some("")))
+      r should equal(Heartbeat(ok = true, Some("")))
     }
   }
 
@@ -66,7 +68,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     // then
     whenReady(response) { r =>
-      r should equal(VenueResponse(ok = true, None, Some("TESTEX")))
+      r should equal(VenueResponse(ok = true, Some("TESTEX")))
     }
   }
 
@@ -86,7 +88,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     // then
     whenReady(response) { r =>
-      r should equal(VenueResponse(ok = false, Some("The venue appears to be non-responsive even though its server is up."), None))
+      r should equal(StarFighterError(ok = false, Some("The venue appears to be non-responsive even though its server is up.")))
     }
   }
 
@@ -106,7 +108,61 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     // then
     whenReady(response) { r =>
-      r should equal(VenueResponse(ok = false, Some("No venue exists with the symbol TESTEX."), None))
+      r should equal(StarFighterError(ok = false, Some("No venue exists with the symbol TESTEX.")))
+    }
+  }
+
+
+  it should "return a stocks info response when checking stocks on a particular venue" in {
+    // given
+    val path = "/venues/TESTEX/stocks"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": true,\n  \"symbols\": [\n    {\n      \"name\": \"Foreign Owned Occulmancy\", \n     \"symbol\": \"FOO\"\n    },\n    {\n      \"name\": \"Best American Ricecookers\",\n      \"symbol\": \"BAR\"\n    },\n    {\n      \"name\": \"Badly Aliased Zebras\", \n      \"symbol\": \"BAZ\"\n    }\n  ] \n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.stocksOnAVenue("TESTEX")
+
+    // then
+    whenReady(response) { r =>
+
+      val res = r.asInstanceOf[StocksInfoResponse]
+      res.ok should be(right = true)
+
+      val symbols = res.symbols.get
+      symbols.length should equal(3)
+
+      val symbol1 = Symbol("Foreign Owned Occulmancy", "FOO")
+      val symbol2 = Symbol("Best American Ricecookers", "BAR")
+      val symbol3 = Symbol("Badly Aliased Zebras", "BAZ")
+      symbols should equal(Seq(symbol1, symbol2, symbol3))
+
+    }
+  }
+
+  it should "return a correctly populated stocks info response when 404 venue not found" in {
+    // given
+    val path = "/venues/TESTEX/stocks"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(404)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"No venue exists with the symbol OGEX\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.stocksOnAVenue("TESTEX")
+
+    // then
+    whenReady(response) { r =>
+      val res = r.asInstanceOf[StarFighterError]
+      res.ok should be(right = false)
+      res.error should equal(Some("No venue exists with the symbol OGEX"))
     }
   }
 
