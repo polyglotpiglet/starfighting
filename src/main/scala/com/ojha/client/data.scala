@@ -127,6 +127,7 @@ object StocksInfoResponseProtocol extends DefaultJsonProtocol {
     }
 
     override def read(json: JsValue): StocksInfoResponse = {
+      import SymbolProtocol._
       val fields = json.asJsObject.fields
       val ok = fields.getOrElse("ok", deserializationError("No ok in StocksInfoResponse"))
       val error = fields.get("error")

@@ -130,10 +130,9 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     // then
     whenReady(response) { r =>
 
-      val res = r.asInstanceOf[StocksInfoResponse]
-      res.ok should be(right = true)
+      r.ok should be(right = true)
 
-      val symbols = res.symbols.get
+      val symbols = r.data.right.get.symbols
       symbols.length should equal(3)
 
       val symbol1 = Symbol("Foreign Owned Occulmancy", "FOO")
@@ -160,9 +159,8 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     // then
     whenReady(response) { r =>
-      val res = r.asInstanceOf[StarFighterError]
-      res.ok should be(right = false)
-      res.error should equal(Some("No venue exists with the symbol OGEX"))
+      r.ok should be(right = false)
+      r.data.left.get.msg should equal("No venue exists with the symbol OGEX")
     }
   }
 
