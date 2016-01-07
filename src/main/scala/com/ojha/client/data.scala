@@ -4,6 +4,7 @@ package com.ojha.client
  * Created by alexandra on 04/01/16.
  */
 
+import com.github.nscala_time.time.Imports._
 import org.joda.time.DateTime
 import spray.json._
 import DefaultJsonProtocol._
@@ -20,6 +21,23 @@ trait StarFighterResponse {
 case class ErrorMessage(msg: String)
 
 trait Data
+
+/* -----------------------------------------------------------------
+    Serialization for joda datetime
+   ----------------------------------------------------------------- */
+
+object DateTimeProtocol extends DefaultJsonProtocol {
+  implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
+    private val pattern = DateTimeFormat.forPattern("yyyy-MM-ddTHH:mm:ss")
+    override def write(obj: DateTime): JsValue =
+      JsObject("ts" -> JsString(pattern.print(obj)))
+
+    override def read(json: JsValue): DateTime = json.asJsObject.fields.get("ts") match {
+      case Some(JsString(s)) => pattern.parseDateTime(s)
+      case _ => deserializationError("Cannot deserialize DateTime")
+    }
+  }
+}
 
 /* -----------------------------------------------------------------
     API Heartbeating data model and serialisation protocols
@@ -111,8 +129,6 @@ object StocksInfoDataProtocol extends DefaultJsonProtocol {
   implicit val stocksInfoDataFromat: RootJsonFormat[StocksInfoData] = jsonFormat1(StocksInfoData)
 }
 
-
-
 object StocksInfoResponseProtocol extends DefaultJsonProtocol {
   import StocksInfoDataProtocol._
   implicit object stocksInfoResponseFormat extends RootJsonFormat[StocksInfoResponse] {
@@ -142,9 +158,95 @@ object StocksInfoResponseProtocol extends DefaultJsonProtocol {
 }
 
 
-//case class OrderBook(override val ok: Boolean,
-//                     override val error: Option[String] = None
-//                      venue: Option[String]) extends StarFighterResponse
+/* -----------------------------------------------------------------
+    Get orderbook for a venue: data model and serialisation protocols
+   ----------------------------------------------------------------- */
+
+trait OutstandingOrder {
+  val price: BigInt
+  val qty: Int
+  val isBuy: Boolean
+}
+
+case class Bid(override val price: BigInt, override val qty: Int) extends OutstandingOrder {
+  override val isBuy = true
+}
+
+object BidProtocol extends DefaultJsonProtocol {
+  implicit object bidFormat extends RootJsonFormat[Bid] {
+    override def write(obj: Bid): JsValue = JsObject {
+      "price" -> JsNumber(obj.price)
+      "qty" -> JsNumber(obj.price)
+      "isBuy" -> JsBoolean(obj.isBuy)
+    }
+
+    override def read(json: JsValue): Bid = {
+      val fields = json.asJsObject.fields
+      (fields.get("price"), fields.get("qty")) match {
+        case (Some(JsNumber(p)), Some(JsNumber(q))) => Bid(p.toInt, q.toInt)
+        case _ => deserializationError("Unable to deserialize Bid")
+      }
+    }
+  }
+}
+
+case class Ask(override val price: BigInt, override val qty: Int) extends OutstandingOrder {
+  override val isBuy = false
+}
+
+object AskProtocol extends DefaultJsonProtocol {
+
+  implicit object askFormat extends RootJsonFormat[Ask] {
+    override def write(obj: Ask): JsValue = JsObject {
+      "price" -> JsNumber(obj.price)
+      "qty" -> JsNumber(obj.price)
+      "isBuy" -> JsBoolean(obj.isBuy)
+    }
+
+    override def read(json: JsValue): Ask = {
+      val fields = json.asJsObject.fields
+      (fields.get("price"), fields.get("qty")) match {
+        case (Some(JsNumber(p)), Some(JsNumber(q))) => Ask(p.toInt, q.toInt)
+        case _ => deserializationError("Unable to deserialize Ask")
+      }
+    }
+  }
+}
+
+case class OrderBookData(venue: String, symbol: String, bids: Seq[Bid], asks: Seq[Ask], ts: DateTime) extends Data
+
+object OrderBookDataProtocol extends DefaultJsonProtocol {
+  import BidProtocol._
+  import AskProtocol._
+  import DateTimeProtocol._
+  implicit val orderBookDataFormat: RootJsonFormat[OrderBookData] = jsonFormat5(OrderBookData)
+}
+
+case class OrderBookResponse(override val ok: Boolean,
+                             override val data: Either[ErrorMessage, OrderBookData]) extends StarFighterResponse
+
+object OrderBookResponseProtocol extends DefaultJsonProtocol {
+
+  import OrderBookDataProtocol._
+
+  implicit object orderBookResponseFormat extends RootJsonFormat[OrderBookResponse] {
+    override def write(obj: OrderBookResponse): JsValue =  {
+      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
+        case Left(e) => Map("error" -> JsString(e.msg))
+        case Right(d) => d.toJson.asJsObject.fields
+      }))
+    }
+
+    override def read(json: JsValue): OrderBookResponse = {
+      val fields = json.asJsObject.fields
+      (fields.get("ok"), fields.get("error")) match {
+        case (Some(JsBoolean(b)), Some(JsString(e))) => OrderBookResponse(b, Left(ErrorMessage(e)))
+        case (Some(JsBoolean(b)), None) => OrderBookResponse(b, Right(json.convertTo[OrderBookData]))
+        case _ => deserializationError("Cannot deserialze OrderBookResponse")
+      }
+    }
+  }
+}
 
 
 
@@ -194,3 +296,4 @@ case class Order(account: String,
                  orderType: OrderType)
 
 case class Request(order: Order)
+
