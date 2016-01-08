@@ -28,12 +28,12 @@ trait Data
 
 object DateTimeProtocol extends DefaultJsonProtocol {
   implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
-    private val pattern = DateTimeFormat.forPattern("yyyy-MM-ddTHH:mm:ss")
+    private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")
     override def write(obj: DateTime): JsValue =
-      JsObject("ts" -> JsString(pattern.print(obj)))
+      JsString(pattern.print(obj))
 
-    override def read(json: JsValue): DateTime = json.asJsObject.fields.get("ts") match {
-      case Some(JsString(s)) => pattern.parseDateTime(s)
+    override def read(json: JsValue): DateTime = json match {
+      case JsString(s) => pattern.parseDateTime(s.substring(0,23)) // todo hack til i can handle fractional seconds piglet
       case _ => deserializationError("Cannot deserialize DateTime")
     }
   }
@@ -174,17 +174,20 @@ case class Bid(override val price: BigInt, override val qty: Int) extends Outsta
 
 object BidProtocol extends DefaultJsonProtocol {
   implicit object bidFormat extends RootJsonFormat[Bid] {
-    override def write(obj: Bid): JsValue = JsObject {
-      "price" -> JsNumber(obj.price)
-      "qty" -> JsNumber(obj.price)
-      "isBuy" -> JsBoolean(obj.isBuy)
+    override def write(obj: Bid): JsValue = {
+      JsObject (
+        "price" -> JsNumber(obj.price),
+        "qty" -> JsNumber(obj.qty),
+        "isBuy" -> JsBoolean(obj.isBuy)
+      )
     }
 
     override def read(json: JsValue): Bid = {
       val fields = json.asJsObject.fields
       (fields.get("price"), fields.get("qty")) match {
-        case (Some(JsNumber(p)), Some(JsNumber(q))) => Bid(p.toInt, q.toInt)
-        case _ => deserializationError("Unable to deserialize Bid")
+        case (Some(JsNumber(p)), Some(JsNumber(q))) => Bid(p.toBigInt(), q.toInt)
+        case msg@_ =>
+          deserializationError("Unable to deserialize Bid")
       }
     }
   }
@@ -197,16 +200,19 @@ case class Ask(override val price: BigInt, override val qty: Int) extends Outsta
 object AskProtocol extends DefaultJsonProtocol {
 
   implicit object askFormat extends RootJsonFormat[Ask] {
-    override def write(obj: Ask): JsValue = JsObject {
-      "price" -> JsNumber(obj.price)
-      "qty" -> JsNumber(obj.price)
-      "isBuy" -> JsBoolean(obj.isBuy)
+    override def write(obj: Ask): JsValue = {
+      val jsObj = JsObject (
+        "price" -> JsNumber(obj.price),
+        "qty" -> JsNumber(obj.qty),
+        "isBuy" -> JsBoolean(obj.isBuy)
+      )
+      jsObj
     }
 
     override def read(json: JsValue): Ask = {
       val fields = json.asJsObject.fields
       (fields.get("price"), fields.get("qty")) match {
-        case (Some(JsNumber(p)), Some(JsNumber(q))) => Ask(p.toInt, q.toInt)
+        case (Some(JsNumber(p)), Some(JsNumber(q))) => Ask(p.toBigInt(), q.toInt)
         case _ => deserializationError("Unable to deserialize Ask")
       }
     }
@@ -219,23 +225,7 @@ object OrderBookDataProtocol extends DefaultJsonProtocol {
   import BidProtocol._
   import AskProtocol._
   import DateTimeProtocol._
-  implicit object orderBookDataFormat extends RootJsonFormat[OrderBookData] {
-    override def write(obj: OrderBookData): JsValue = JsObject {
-      "venue" -> JsString(obj.venue)
-      "symbol" -> JsString(obj.symbol)
-      "bids" -> obj.bids.toJson
-      "asks" -> obj.asks.toJson
-      "ts" -> obj.ts.toJson
-    }
-
-    override def read(json: JsValue): OrderBookData = {
-      val fields = json.asJsObject.fields
-      (fields.get("venue"), fields.get("symbol"), fields.get("bids"), fields.get("asks"), fields.get("ts"))
-      //piglet
-      null
-    }
-  }
-
+  implicit val orderBookDataFormat = jsonFormat5(OrderBookData)
 }
 
 case class OrderBookResponse(override val ok: Boolean,

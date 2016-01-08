@@ -182,10 +182,9 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     // then
     whenReady(response) { r =>
-
-      val dateTime = new DateTime().withYear(2015).withMonthOfYear(12).withDayOfMonth(4).withHourOfDay(9).withMinuteOfHour(2).withSecondOfMinute(16)
-
       r.ok should be(right = true)
+
+      val dateTime = new DateTime().withYear(2015).withMonthOfYear(12).withDayOfMonth(4).withHourOfDay(9).withMinuteOfHour(2).withSecondOfMinute(16).withMillisOfSecond(680)
       val bids = List[Bid](Bid(5200, 1), Bid(815, 15), Bid(800, 12), Bid(800, 152))
       val asks = List[Ask](Ask(5205, 150), Ask(5205, 1), Ask(BigInt(1000000000000L), 99999))
       val orderData = OrderBookData("OGEX", "FAC", bids, asks, dateTime)
