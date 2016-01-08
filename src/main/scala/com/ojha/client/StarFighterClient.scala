@@ -49,6 +49,15 @@ class StarFighterClient(baseurl: String) extends LazyLogging {
     result.map(_.getResponseBody.parseJson.convertTo[StocksInfoResponse])
   }
 
+  def orderBookForStockOnVenue(venue: String, stock: String): Future[OrderBookResponse] = {
+    import com.ojha.client.OrderBookResponseProtocol._
+    val urlPath = s"$baseurl/venues/$venue/stocks/$stock"
+    val request = url(urlPath)
+    logger.info(s"Checking orderbook for stock on venue $urlPath")
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[OrderBookResponse])
+  }
+
   def execute(order: Order) = {
     val request = Request(order)
   }
