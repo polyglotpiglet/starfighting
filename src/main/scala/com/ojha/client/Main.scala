@@ -18,7 +18,7 @@ object Main extends App {
   val asks = List[Ask](Ask(5205, 150), Ask(5205, 1), Ask(BigInt(1000000000000L), 99999))
   val orderData = OrderBookData("OGEX", "FAC", bids, asks, dateTime)
 
-  import DateTimeProtocol._
+  import FractionalSecondsDateTimeProtocol._
   val djson = dateTime.toJson
 
   val bid = Bid(1,2)

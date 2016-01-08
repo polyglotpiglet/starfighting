@@ -215,19 +215,44 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  ignore should "post an order to starfighter" in {
+  it should "post an order and parse happy response for a stock on a venue" in {
     // given
+    val newOrder = NewOrder("OGB12345", "OGEX", "FAC", 5100, 100, Directions.Buy, OrderTypes.Limit)
+
+    val path = "/venues/OGEX/stocks/FAC/orders"
+    stubFor(post(urlEqualTo(path))
+    //  .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+    //  .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"orderType\":\"limit\",\"venue\":\"OGEX\"}"))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n\t\"ok\": true,\n\t\"symbol\": \"FAC\",\n\t\"venue\": \"OGEX\",\n\t\"direction\": \"buy\",\n\t\"originalQty\": 100,\n\t\"qty\": 20,\n\t\"price\": 5100,\n\t\"type\": \"limit\",\n\t\"id\": 12345,\n\t\"account\": \"OGB12345\",\n\t\"ts\": \"2015-07-05T22:16:18+00:00\",\n\t\"fills\": [{\n\t\t\"price\": 5050,\n\t\t\"qty\": 50,\n\t\t\"ts\": \"2015-07-05T22:16:18+00:00\"\n\t}],\n\t\"totalFilled\": 80,\n\t\"open\": true\n}")))
+
+
     val sut = StarFighterClient()
-    val order = Order("act", "HPYEX", "IBM", 30000, 100, Directions.Buy, OrderTypes.Limit)
 
     // when
-    sut.execute(order)
+    val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
 
     // then
-    verify(postRequestedFor(urlEqualTo("/ob/api"))
-      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth"))
-      .withRequestBody(containing("lalala")))
-  }
+    whenReady(response) { r =>
 
+      val expected = NewOrderResponse(ok = true, Right(
+        NewOrderData( "FAC",
+          "OGEX",
+          Directions.Buy,
+          100,
+          20,
+          OrderTypes.Limit,
+          12345,
+          "OGB12345",
+          DateTime.now(),
+          List(Fill(5050, 50, DateTime.now())),
+          80,
+          open = true)))
+
+      r should equal(expected)
+    }
+  }
 
 }
