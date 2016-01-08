@@ -165,6 +165,32 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     }
   }
 
+  it should "return an orderbook response checking stock S on venue V with empty asks and bids" in {
+    // given
+    val path = "/venues/TESTEX/stocks/FOOBAR"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": true,\n  \"venue\": \"TESTEX\",\n  \"symbol\": \"FOOBAR\",\n  \"ts\": \"2016-01-08T11:04:16.636875884Z\",\n  \"bids\": null\n  \"asks\": null\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.orderBookForStockOnVenue("TESTEX", "FOOBAR")
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = true)
+
+      val ts = new DateTime(2016, 1, 8, 11, 4, 16, 636)
+      val bids = List[Bid]()
+      val asks = List[Ask]()
+      val orderData = OrderBookData("TESTEX", "FOOBAR", bids, asks, ts)
+
+      r.data.right.get should equal(orderData)
+    }
+  }
 
   it should "return an orderbook response checking stock S on venue V" in {
     // given
