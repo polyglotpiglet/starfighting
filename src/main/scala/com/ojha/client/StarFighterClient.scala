@@ -64,7 +64,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     import NewOrderResponseProtocol._
     val orderJson = order.toJson.compactPrint
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders"
-    val request = url(urlPath).setBody(orderJson).setHeader("X-Starfighter-Authorization", "").POST
+    val request = url(urlPath).setBody(orderJson).setHeader("X-Starfighter-Authorization", apikey).POST
     logger.info(s"Posting an order for stock at url: $urlPath, order:$orderJson ")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[NewOrderResponse])

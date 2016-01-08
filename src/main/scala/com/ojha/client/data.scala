@@ -41,12 +41,12 @@ object FractionalSecondsDateTimeProtocol extends DefaultJsonProtocol {
 
 object ISO8601DateTimeProtocol extends DefaultJsonProtocol {
   implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
-    private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'")
+    private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss")
     override def write(obj: DateTime): JsValue =
       JsString(pattern.print(obj))
 
     override def read(json: JsValue): DateTime = json match {
-      case JsString(s) => pattern.parseDateTime(s.substring(0,23)) // todo hack til i can handle fractional seconds piglet
+      case JsString(s) => pattern.parseDateTime(s.takeWhile(_ != '+')) // todo hack becuase i dont know what it is piglet
       case _ => deserializationError("Cannot deserialize DateTime")
     }
   }
@@ -372,7 +372,7 @@ object NewOrderDataProtocol extends DefaultJsonProtocol {
   import DirectionProtocol._
   import ISO8601DateTimeProtocol._
   import FillProtocol._
-  implicit val newOrderDataFormat = jsonFormat12(NewOrderData)
+  implicit val newOrderDataFormat = jsonFormat(NewOrderData.apply, "symbol", "venue", "direction", "originalQty", "qty", "type", "id", "account", "ts", "fills", "totalFilled", "open")
 }
 
 case class NewOrderResponse(override val ok: Boolean,

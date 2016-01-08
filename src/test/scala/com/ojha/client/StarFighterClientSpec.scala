@@ -221,8 +221,8 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     val path = "/venues/OGEX/stocks/FAC/orders"
     stubFor(post(urlEqualTo(path))
-    //  .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
-    //  .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"orderType\":\"limit\",\"venue\":\"OGEX\"}"))
+      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
       .willReturn(
         aResponse()
           .withStatus(200)
@@ -235,7 +235,10 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
 
     // then
+
     whenReady(response) { r =>
+
+      val ts = new DateTime(2015, 7, 5, 22, 16, 18)
 
       val expected = NewOrderResponse(ok = true, Right(
         NewOrderData( "FAC",
@@ -246,11 +249,63 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
           OrderTypes.Limit,
           12345,
           "OGB12345",
-          DateTime.now(),
-          List(Fill(5050, 50, DateTime.now())),
+          ts,
+          List(Fill(5050, 50, ts)),
           80,
           open = true)))
 
+      r should equal(expected)
+    }
+  }
+
+  it should "post an order and parse sad response for stocks on venue" in {
+    // given
+    val newOrder = NewOrder("OGB12345", "OGEX", "FAC", 5100, 100, Directions.Buy, OrderTypes.Limit)
+
+    val path = "/venues/OGEX/stocks/FAC/orders"
+    stubFor(post(urlEqualTo(path))
+      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"A descriptive error message telling you that the order you attempted to place was invalid and not processed by the stock exchange.\"\n}")))
+
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
+
+    // then
+    whenReady(response) { r =>
+      val expected = NewOrderResponse(ok = false, Left(ErrorMessage("A descriptive error message telling you that the order you attempted to place was invalid and not processed by the stock exchange.")))
+      r should equal(expected)
+    }
+  }
+
+  it should "post an order and parse sad 400 response for stocks on venue" in {
+    // given
+    val newOrder = NewOrder("OGB12345", "OGEX", "FAC", 5100, 100, Directions.Buy, OrderTypes.Limit)
+
+    val path = "/venues/OGEX/stocks/FAC/orders"
+    stubFor(post(urlEqualTo(path))
+      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .willReturn(
+        aResponse()
+          .withStatus(400)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"You provided symbol FOO and venue BAR in the JSON request but these did not match your URL.\"\n}")))
+
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
+
+    // then
+    whenReady(response) { r =>
+      val expected = NewOrderResponse(ok = false, Left(ErrorMessage("You provided symbol FOO and venue BAR in the JSON request but these did not match your URL.")))
       r should equal(expected)
     }
   }
