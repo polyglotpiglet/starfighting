@@ -6,8 +6,6 @@ import dispatch._
 import spray.json._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-
-
 /**
  * Created by alexandra on 04/01/16.
  */
@@ -69,6 +67,8 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[NewOrderResponse])
   }
+
+//  def getQuoteForStock()
 
   def shutdown(): Unit = {
     logger.info("Shutting down StarFighterClient")

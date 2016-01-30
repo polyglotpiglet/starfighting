@@ -172,7 +172,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
       .willReturn(
         aResponse()
           .withStatus(200)
-          .withBody("{\n  \"ok\": true,\n  \"venue\": \"TESTEX\",\n  \"symbol\": \"FOOBAR\",\n  \"ts\": \"2016-01-08T11:04:16.636875884Z\",\n  \"bids\": null\n  \"asks\": null\n}")))
+          .withBody("{\n  \"ok\": true,\n  \"venue\": \"TESTEX\",\n  \"symbol\": \"FOOBAR\",\n  \"ts\": \"2016-01-08T11:04:16.636875884Z\",\n  \"bids\": null,\n  \"asks\": null\n}")))
 
     val sut = StarFighterClient()
 
@@ -186,7 +186,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
       val ts = new DateTime(2016, 1, 8, 11, 4, 16, 636)
       val bids = List[Bid]()
       val asks = List[Ask]()
-      val orderData = OrderBookData("TESTEX", "FOOBAR", bids, asks, ts)
+      val orderData = OrderBookData("TESTEX", "FOOBAR", None, None, ts)
 
       r.data.right.get should equal(orderData)
     }
@@ -213,7 +213,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
       val dateTime = new DateTime().withYear(2015).withMonthOfYear(12).withDayOfMonth(4).withHourOfDay(9).withMinuteOfHour(2).withSecondOfMinute(16).withMillisOfSecond(680)
       val bids = List[Bid](Bid(5200, 1), Bid(815, 15), Bid(800, 12), Bid(800, 152))
       val asks = List[Ask](Ask(5205, 150), Ask(5205, 1), Ask(BigInt(1000000000000L), 99999))
-      val orderData = OrderBookData("OGEX", "FAC", bids, asks, dateTime)
+      val orderData = OrderBookData("OGEX", "FAC", Some(bids), Some(asks), dateTime)
 
       r.data.right.get should equal(orderData)
     }

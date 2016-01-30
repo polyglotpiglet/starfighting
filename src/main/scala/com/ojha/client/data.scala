@@ -6,7 +6,6 @@ package com.ojha.client
 
 import com.github.nscala_time.time.Imports._
 import org.joda.time.DateTime
-import spray.json
 import spray.json._
 import DefaultJsonProtocol._
 
@@ -232,13 +231,14 @@ object AskProtocol extends DefaultJsonProtocol {
   }
 }
 
-case class OrderBookData(venue: String, symbol: String, bids: Seq[Bid], asks: Seq[Ask], ts: DateTime) extends Data
+case class OrderBookData(venue: String, symbol: String, bids: Option[Seq[Bid]], asks: Option[Seq[Ask]], ts: DateTime) extends Data
 
 object OrderBookDataProtocol extends DefaultJsonProtocol {
   import BidProtocol._
   import AskProtocol._
   import FractionalSecondsDateTimeProtocol._
-  implicit val orderBookDataFormat = jsonFormat5(OrderBookData)
+
+  implicit val orderBookDataFormat: RootJsonFormat[OrderBookData] = jsonFormat5(OrderBookData)
 }
 
 case class OrderBookResponse(override val ok: Boolean,
