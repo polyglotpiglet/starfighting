@@ -87,6 +87,15 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
 
   }
 
+  def cancelOrder(venue: String, stock: String, id: Int): Future[OrderStatusResponse] = {
+    import OrderStatusResponseProtocol._
+    val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders/$id"
+    val request = url(urlPath).DELETE
+    logger.info(s"Cancel order $urlPath")
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[OrderStatusResponse])
+  }
+
 
   def shutdown(): Unit = {
     logger.info("Shutting down StarFighterClient")

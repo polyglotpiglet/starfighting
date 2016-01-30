@@ -426,4 +426,47 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     }
   }
 
+  it should "return a status for order of stock on venue when you cancel order happily" in {
+    // given
+    val path = "/venues/OGEX/stocks/FAC/orders/1"
+    stubFor(delete(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": true,\n  \"symbol\": \"ROBO\",\n  \"venue\": \"ROBUST\",\n  \"direction\": \"buy\",\n  \"originalQty\": 85,\n  \"qty\": 0,\n  \"price\": 993,\n  \"orderType\": \"immediate-or-cancel\",\n  \"id\": 1,\n  \"account\": \"FOO123\",\n  \"ts\": \"2015-08-10T16:10:32.987288+09:00\",\n  \"fills\": [\n    {\n      \"price\": 366,\n      \"qty\": 45,\n      \"ts\": \"2015-08-10T16:10:32.987292+09:00\"\n    }\n  ],\n  \"totalFilled\": 85,\n  \"open\": false\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.cancelOrder("OGEX", "FAC", 1)
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = true)
+      val orderStatusData = new OrderStatusData("ROBO", "ROBUST", Directions.Buy, 85, 0, 993, OrderTypes.IoC, 1, "FOO123", new DateTime(2015, 8, 10, 16, 10, 32, 987), Seq(Fill(366, 45, new DateTime(2015, 8, 10, 16, 10, 32, 987))), 85, false)
+      r.data.right.get should equal(orderStatusData)
+    }
+  }
+
+  it should "return a unauthorized message when not allowed to cancel order" in {
+    // given
+    val path = "/venues/OGEX/stocks/FAC/orders/1"
+    stubFor(delete(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(401)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"Not authorized to delete that order.  You have to own account ABC123456.\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.cancelOrder("OGEX", "FAC", 1)
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = false)
+      r.data.left.get.msg should equal("Not authorized to delete that order.  You have to own account ABC123456.")
+    }
+  }
+
 }
