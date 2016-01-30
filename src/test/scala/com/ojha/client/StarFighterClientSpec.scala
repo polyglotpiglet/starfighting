@@ -6,6 +6,7 @@ import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration._
 import org.joda.time.DateTime
+import org.scalatest.time.{Seconds, Span, Millis}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import org.scalatest.concurrent.ScalaFutures
@@ -22,6 +23,9 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   val port = 8989
   val host = "localhost"
   val wireMockServer = new WireMockServer(wireMockConfig().port(port))
+
+  implicit val defaultPatience =
+    PatienceConfig(timeout = Span(2, Seconds), interval = Span(5, Millis))
 
   override def beforeAll(): Unit = {
     wireMockServer.start()
@@ -376,6 +380,49 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     whenReady(response) { r =>
       r.ok should be(right = false)
       r.data.left.get.msg should equal("symbol FOO does not exist on venue BAREX")
+    }
+  }
+
+  it should "return a status for order of stock on venue" in {
+    // given
+    val path = "/venues/OGEX/stocks/FAC/orders/1"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": true,\n  \"symbol\": \"ROBO\",\n  \"venue\": \"ROBUST\",\n  \"direction\": \"buy\",\n  \"originalQty\": 85,\n  \"qty\": 40,\n  \"price\": 993,\n  \"orderType\": \"immediate-or-cancel\",\n  \"id\": 1,\n  \"account\": \"FOO123\",\n  \"ts\": \"2015-08-10T16:10:32.987288+09:00\",\n  \"fills\": [\n    {\n      \"price\": 366,\n      \"qty\": 45,\n      \"ts\": \"2015-08-10T16:10:32.987292+09:00\"\n    }\n  ],\n  \"totalFilled\": 85,\n  \"open\": true\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.getStatusForOrder("OGEX", "FAC", 1)
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = true)
+      val orderStatusData = new OrderStatusData("ROBO", "ROBUST", Directions.Buy, 85, 40, 993, OrderTypes.IoC, 1, "FOO123", new DateTime(2015, 8, 10, 16, 10, 32, 987), Seq(Fill(366, 45, new DateTime(2015, 8, 10, 16, 10, 32, 987))), 85, true)
+      r.data.right.get should equal(orderStatusData)
+    }
+  }
+
+  it should "return a unauthorized message when not allowed to check status of order" in {
+    // given
+    val path = "/venues/OGEX/stocks/FAC/orders/1"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(401)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"You are not authorized to view that order's details.\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.getStatusForOrder("OGEX", "FAC", 1)
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = false)
+      r.data.left.get.msg should equal("You are not authorized to view that order's details.")
     }
   }
 

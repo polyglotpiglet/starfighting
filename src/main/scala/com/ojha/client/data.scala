@@ -312,6 +312,9 @@ object OrderTypes {
   case object Market extends OrderType {
     override def toString = "market"
   }
+  case object IoC extends OrderType {
+    override def toString = "immediate-or-cancel"
+  }
 }
 
 object OrderTypeProtocol extends DefaultJsonProtocol {
@@ -321,6 +324,7 @@ object OrderTypeProtocol extends DefaultJsonProtocol {
     override def read(json: JsValue): OrderType = json match {
       case JsString("limit") => OrderTypes.Limit
       case JsString("market") => OrderTypes.Market
+      case JsString("immediate-or-cancel") => OrderTypes.IoC
       case _ => deserializationError("Cannot deserialize OrderType")
     }
   }
@@ -410,24 +414,6 @@ object NewOrderResponseProtocol extends DefaultJsonProtocol {
     Getting a quote for a stock: data model and serialisation protocols
    ----------------------------------------------------------------- */
 
-/*
-{
-    "ok": true,
-    "symbol": "FAC",
-    "venue": "OGEX",
-    "bid": 5100,
-    "ask": 5125,
-    "bidSize": 392,
-    "askSize": 711,
-    "bidDepth": 2748,
-    "askDepth": 2237,
-    "last": 5125,
-    "lastSize": 52,
-    "lastTrade": "2015-07-13T05:38:17.33640392Z",
-    "quoteTime": "2015-07-13T05:38:17.33640392Z"
-}
- */
-
 case class StockQuoteData(symbol: String,
                           venue: String,
                           bid: Int,
@@ -470,7 +456,64 @@ object StockQuoteResponseProtocol extends DefaultJsonProtocol {
           val data = dataObj.convertTo[StockQuoteData]
           StockQuoteResponse(b, Right(data))
         }
-        case _ => deserializationError("Cannot deserialize NewOrderResponse")
+        case _ => deserializationError("Cannot deserialize StockQuoteResponse")
+      }
+    }
+  }
+}
+
+
+/* -----------------------------------------------------------------
+    Getting status for an order: data model and serialisation protocols
+   ----------------------------------------------------------------- */
+
+case class OrderStatusData(symbol: String,
+                           venue: String,
+                           direction: Direction,
+                           originalQty: Int,
+                           qty: Int,
+                           price: Int,
+                           orderType: OrderType,
+                           id: Int,
+                           account: String,
+                           ts: DateTime,
+                           fills: Seq[Fill],
+                           totalFilled: Int,
+                           open: Boolean) extends Data
+
+case class OrderStatusResponse(override val ok: Boolean,
+                              override val data: Either[ErrorMessage, OrderStatusData]) extends StarFighterResponse
+
+object OrderStatusDataProtocol extends DefaultJsonProtocol {
+  import FractionalSecondsDateTimeProtocol._
+  import DirectionProtocol._
+  import OrderTypeProtocol._
+  implicit val fillFormat = jsonFormat3(Fill)
+  implicit val orderStatusFormat = jsonFormat13(OrderStatusData)
+}
+
+object OrderStatusResponseProtocol extends DefaultJsonProtocol {
+  import OrderStatusDataProtocol._
+
+  implicit object orderStatusResponseProtocol extends RootJsonFormat[OrderStatusResponse] {
+    override def write(obj: OrderStatusResponse): JsValue =  {
+      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
+        case Left(e) => Map("error" -> JsString(e.msg))
+        case Right(d) => d.toJson.asJsObject.fields
+      }))
+    }
+
+    override def read(json: JsValue): OrderStatusResponse = {
+      val fields = json.asJsObject.fields
+      (fields.get("ok"), fields.get("error")) match {
+        case (Some(JsBoolean(b)), Some(JsString(e))) => OrderStatusResponse(b, Left(ErrorMessage(e)))
+        case (Some(JsBoolean(b)), None) => {
+          val dataFields = fields.filter(_._1 != "ok")
+          val dataObj = JsObject(dataFields)
+          val data = dataObj.convertTo[OrderStatusData]
+          OrderStatusResponse(b, Right(data))
+        }
+        case _ => deserializationError("Cannot deserialize OrderStatusResponse")
       }
     }
   }
