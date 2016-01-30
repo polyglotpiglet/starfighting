@@ -96,6 +96,25 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     result.map(_.getResponseBody.parseJson.convertTo[OrderStatusResponse])
   }
 
+  def getAllOrderStatuses(venue: String, account: String): Future[AllOrderStatusesResponse] = {
+    import AllOrderStatusResponseProtocol._
+    val urlPath = s"$baseurl/venues/$venue/accounts/$account/orders"
+    val request = url(urlPath)
+    logger.info(s"Getting all orders on venue for an account $urlPath")
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[AllOrderStatusesResponse])
+  }
+
+
+  def getAllOrderStatusesForStock(venue: String, stock: String, account: String): Future[AllOrderStatusesResponse] = {
+    import AllOrderStatusResponseProtocol._
+    val urlPath = s"$baseurl/venues/$venue/accounts/$account/stocks/$stock/orders"
+    val request = url(urlPath)
+    logger.info(s"Getting all orders on venue for a stock/account $urlPath")
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[AllOrderStatusesResponse])
+  }
+
 
   def shutdown(): Unit = {
     logger.info("Shutting down StarFighterClient")

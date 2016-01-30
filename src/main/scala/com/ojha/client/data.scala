@@ -518,3 +518,44 @@ object OrderStatusResponseProtocol extends DefaultJsonProtocol {
     }
   }
 }
+ /* -----------------------------------------------------------------
+      Getting statuses for all order: data model and serialisation protocols
+     ----------------------------------------------------------------- */
+
+  case class AllOrderStatusesData(venue: String, orders: Seq[OrderStatusData]) extends Data
+
+  case class AllOrderStatusesResponse(override val ok: Boolean,
+                                 override val data: Either[ErrorMessage, AllOrderStatusesData]) extends StarFighterResponse
+
+  object AllOrderStatusesDataProtocol extends DefaultJsonProtocol {
+    import OrderStatusDataProtocol._
+    implicit val allOrderStatusFormat = jsonFormat2(AllOrderStatusesData)
+  }
+
+  object AllOrderStatusResponseProtocol extends DefaultJsonProtocol {
+
+    import AllOrderStatusesDataProtocol._
+
+    implicit object allorderStatusResponseFormat extends RootJsonFormat[AllOrderStatusesResponse] {
+      override def write(obj: AllOrderStatusesResponse): JsValue = {
+        JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
+          case Left(e) => Map("error" -> JsString(e.msg))
+          case Right(d) => d.toJson.asJsObject.fields
+        }))
+      }
+
+      override def read(json: JsValue): AllOrderStatusesResponse = {
+        val fields = json.asJsObject.fields
+        (fields.get("ok"), fields.get("error")) match {
+          case (Some(JsBoolean(b)), Some(JsString(e))) => AllOrderStatusesResponse(b, Left(ErrorMessage(e)))
+          case (Some(JsBoolean(b)), None) => {
+            val dataFields = fields.filter(_._1 != "ok")
+            val dataObj = JsObject(dataFields)
+            val data = dataObj.convertTo[AllOrderStatusesData]
+            AllOrderStatusesResponse(b, Right(data))
+          }
+          case _ => deserializationError("Cannot deserialize AllOrderStatusesResponse")
+        }
+      }
+    }
+  }
