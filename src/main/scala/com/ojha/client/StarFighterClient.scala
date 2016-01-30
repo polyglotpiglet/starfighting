@@ -6,8 +6,6 @@ import dispatch._
 import spray.json._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-
-
 /**
  * Created by alexandra on 04/01/16.
  */
@@ -15,11 +13,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object StarFighterClient extends Configurable {
   def apply(): StarFighterClient = {
     val baseurl = config.getString("starfighter.baseurl")
-    new StarFighterClient(baseurl)
+    val apikey = config.getString("starfighter.apikey")
+    new StarFighterClient(baseurl, apikey)
   }
 }
 
-class StarFighterClient(baseurl: String) extends LazyLogging {
+class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
 
   logger.info(s"Started StarFighterClient with baseurl $baseurl")
 
@@ -58,9 +57,18 @@ class StarFighterClient(baseurl: String) extends LazyLogging {
     result.map(_.getResponseBody.parseJson.convertTo[OrderBookResponse])
   }
 
-  def execute(order: Order) = {
-    val request = Request(order)
+  def placeOrderForStock(venue: String, stock: String, order: NewOrder): Future[NewOrderResponse] = {
+    import com.ojha.client.NewOrderProtocol._
+    import NewOrderResponseProtocol._
+    val orderJson = order.toJson.compactPrint
+    val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders"
+    val request = url(urlPath).setBody(orderJson).setHeader("X-Starfighter-Authorization", apikey).POST
+    logger.info(s"Posting an order for stock at url: $urlPath, order:$orderJson ")
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[NewOrderResponse])
   }
+
+//  def getQuoteForStock()
 
   def shutdown(): Unit = {
     logger.info("Shutting down StarFighterClient")

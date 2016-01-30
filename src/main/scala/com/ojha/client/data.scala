@@ -9,7 +9,6 @@ import org.joda.time.DateTime
 import spray.json._
 import DefaultJsonProtocol._
 
-case class Fill(price: Int, qty: Int, ts: DateTime)
 
 /* The basic response format with ok and optional error message */
 
@@ -26,7 +25,7 @@ trait Data
     Serialization for joda datetime
    ----------------------------------------------------------------- */
 
-object DateTimeProtocol extends DefaultJsonProtocol {
+object FractionalSecondsDateTimeProtocol extends DefaultJsonProtocol {
   implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
     private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")
     override def write(obj: DateTime): JsValue =
@@ -34,6 +33,19 @@ object DateTimeProtocol extends DefaultJsonProtocol {
 
     override def read(json: JsValue): DateTime = json match {
       case JsString(s) => pattern.parseDateTime(s.substring(0,23)) // todo hack til i can handle fractional seconds piglet
+      case _ => deserializationError("Cannot deserialize DateTime")
+    }
+  }
+}
+
+object ISO8601DateTimeProtocol extends DefaultJsonProtocol {
+  implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
+    private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss")
+    override def write(obj: DateTime): JsValue =
+      JsString(pattern.print(obj))
+
+    override def read(json: JsValue): DateTime = json match {
+      case JsString(s) => pattern.parseDateTime(s.takeWhile(_ != '+')) // todo hack becuase i dont know what it is piglet
       case _ => deserializationError("Cannot deserialize DateTime")
     }
   }
@@ -219,13 +231,14 @@ object AskProtocol extends DefaultJsonProtocol {
   }
 }
 
-case class OrderBookData(venue: String, symbol: String, bids: Seq[Bid], asks: Seq[Ask], ts: DateTime) extends Data
+case class OrderBookData(venue: String, symbol: String, bids: Option[Seq[Bid]], asks: Option[Seq[Ask]], ts: DateTime) extends Data
 
 object OrderBookDataProtocol extends DefaultJsonProtocol {
   import BidProtocol._
   import AskProtocol._
-  import DateTimeProtocol._
-  implicit val orderBookDataFormat = jsonFormat5(OrderBookData)
+  import FractionalSecondsDateTimeProtocol._
+
+  implicit val orderBookDataFormat: RootJsonFormat[OrderBookData] = jsonFormat5(OrderBookData)
 }
 
 case class OrderBookResponse(override val ok: Boolean,
@@ -260,21 +273,9 @@ object OrderBookResponseProtocol extends DefaultJsonProtocol {
 }
 
 
-
-
-//case class Response(ok: Boolean,
-//                    symbol: String,
-//                    venue: String,
-//                    direction: Direction,
-//                    originalQty: Int,
-//                    qty: Int,
-//                    orderType: OrderType,
-//                    id: Int,
-//                    account: String,
-//                    ts: DateTime,
-//                    fills: Seq[Fill],
-//                    totalFilled: Int,
-//                    open: Boolean)
+/* -----------------------------------------------------------------
+    OrderDirection
+   ----------------------------------------------------------------- */
 
 trait Direction
 
@@ -287,6 +288,22 @@ object Directions {
   }
 }
 
+object DirectionProtocol extends DefaultJsonProtocol {
+  implicit object directionFormat extends RootJsonFormat[Direction] {
+    override def write(obj: Direction): JsValue = JsString(obj.toString)
+
+    override def read(json: JsValue): Direction = json match {
+      case JsString("sell") => Directions.Sell
+      case JsString("buy") => Directions.Buy
+      case _ => deserializationError("Cannot deserialize Direction")
+    }
+  }
+}
+
+/* -----------------------------------------------------------------
+    OrderType
+   ----------------------------------------------------------------- */
+
 trait OrderType
 object OrderTypes {
   case object Limit extends OrderType {
@@ -297,14 +314,97 @@ object OrderTypes {
   }
 }
 
+object OrderTypeProtocol extends DefaultJsonProtocol {
+  implicit object orderTypeFormat extends RootJsonFormat[OrderType] {
+    override def write(obj: OrderType): JsValue = JsString(obj.toString)
 
-case class Order(account: String,
-                 venue: String,
-                 symbol: String,
-                 price: Int,
-                 qty: Int,
-                 direction: Direction,
-                 orderType: OrderType)
+    override def read(json: JsValue): OrderType = json match {
+      case JsString("limit") => OrderTypes.Limit
+      case JsString("market") => OrderTypes.Market
+      case _ => deserializationError("Cannot deserialize OrderType")
+    }
+  }
+}
 
-case class Request(order: Order)
+/* -----------------------------------------------------------------
+    Placing a new order: data model and serialisation protocols
+   ----------------------------------------------------------------- */
+
+case class Fill(price: Int, qty: Int, ts: DateTime)
+
+object FillProtocol extends DefaultJsonProtocol {
+  import ISO8601DateTimeProtocol._
+  implicit val fillFormat = jsonFormat3(Fill)
+}
+
+case class NewOrder(account: String,
+                    venue: String,
+                    stock: String,
+                    price: Int,
+                    qty: Int,
+                    direction: Direction,
+                    orderType: OrderType)
+
+object NewOrderProtocol extends DefaultJsonProtocol {
+
+  import OrderTypeProtocol._
+  import DirectionProtocol._
+
+  implicit val newOrderFormat = jsonFormat(NewOrder.apply, "account", "venue", "stock", "price", "qty", "direction", "type")
+
+}
+
+case class NewOrderData(symbol: String,
+                    venue: String,
+                    direction: Direction,
+                    originalQty: Int,
+                    qty: Int,
+                    orderType: OrderType,
+                    id: Int,
+                    account: String,
+                    ts: DateTime,
+                    fills: Seq[Fill],
+                    totalFilled: Int,
+                    open: Boolean) extends Data
+
+object NewOrderDataProtocol extends DefaultJsonProtocol {
+  import OrderTypeProtocol._
+  import DirectionProtocol._
+  import ISO8601DateTimeProtocol._
+  import FillProtocol._
+  implicit val newOrderDataFormat = jsonFormat(NewOrderData.apply, "symbol", "venue", "direction", "originalQty", "qty", "type", "id", "account", "ts", "fills", "totalFilled", "open")
+}
+
+case class NewOrderResponse(override val ok: Boolean,
+                            override val data: Either[ErrorMessage, NewOrderData]) extends StarFighterResponse
+
+
+object NewOrderResponseProtocol extends DefaultJsonProtocol {
+  import NewOrderDataProtocol._
+
+  implicit object newOrderResponseProtocol extends RootJsonFormat[NewOrderResponse] {
+    override def write(obj: NewOrderResponse): JsValue =  {
+      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
+        case Left(e) => Map("error" -> JsString(e.msg))
+        case Right(d) => d.toJson.asJsObject.fields
+      }))
+    }
+
+    override def read(json: JsValue): NewOrderResponse = {
+      val fields = json.asJsObject.fields
+      (fields.get("ok"), fields.get("error")) match {
+        case (Some(JsBoolean(b)), Some(JsString(e))) => NewOrderResponse(b, Left(ErrorMessage(e)))
+        case (Some(JsBoolean(b)), None) => {
+          val dataFields = fields.filter(_._1 != "ok")
+          val dataObj = JsObject(dataFields)
+          val data = dataObj.convertTo[NewOrderData]
+          NewOrderResponse(b, Right(data))
+        }
+        case _ => deserializationError("Cannot deserialize NewOrderResponse")
+      }
+    }
+  }
+}
+
+
 

@@ -165,6 +165,32 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     }
   }
 
+  it should "return an orderbook response checking stock S on venue V with empty asks and bids" in {
+    // given
+    val path = "/venues/TESTEX/stocks/FOOBAR"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": true,\n  \"venue\": \"TESTEX\",\n  \"symbol\": \"FOOBAR\",\n  \"ts\": \"2016-01-08T11:04:16.636875884Z\",\n  \"bids\": null,\n  \"asks\": null\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.orderBookForStockOnVenue("TESTEX", "FOOBAR")
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = true)
+
+      val ts = new DateTime(2016, 1, 8, 11, 4, 16, 636)
+      val bids = List[Bid]()
+      val asks = List[Ask]()
+      val orderData = OrderBookData("TESTEX", "FOOBAR", None, None, ts)
+
+      r.data.right.get should equal(orderData)
+    }
+  }
 
   it should "return an orderbook response checking stock S on venue V" in {
     // given
@@ -187,7 +213,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
       val dateTime = new DateTime().withYear(2015).withMonthOfYear(12).withDayOfMonth(4).withHourOfDay(9).withMinuteOfHour(2).withSecondOfMinute(16).withMillisOfSecond(680)
       val bids = List[Bid](Bid(5200, 1), Bid(815, 15), Bid(800, 12), Bid(800, 152))
       val asks = List[Ask](Ask(5205, 150), Ask(5205, 1), Ask(BigInt(1000000000000L), 99999))
-      val orderData = OrderBookData("OGEX", "FAC", bids, asks, dateTime)
+      val orderData = OrderBookData("OGEX", "FAC", Some(bids), Some(asks), dateTime)
 
       r.data.right.get should equal(orderData)
     }
@@ -215,19 +241,99 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  ignore should "post an order to starfighter" in {
+  it should "post an order and parse happy response for a stock on a venue" in {
     // given
+    val newOrder = NewOrder("OGB12345", "OGEX", "FAC", 5100, 100, Directions.Buy, OrderTypes.Limit)
+
+    val path = "/venues/OGEX/stocks/FAC/orders"
+    stubFor(post(urlEqualTo(path))
+      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n\t\"ok\": true,\n\t\"symbol\": \"FAC\",\n\t\"venue\": \"OGEX\",\n\t\"direction\": \"buy\",\n\t\"originalQty\": 100,\n\t\"qty\": 20,\n\t\"price\": 5100,\n\t\"type\": \"limit\",\n\t\"id\": 12345,\n\t\"account\": \"OGB12345\",\n\t\"ts\": \"2015-07-05T22:16:18+00:00\",\n\t\"fills\": [{\n\t\t\"price\": 5050,\n\t\t\"qty\": 50,\n\t\t\"ts\": \"2015-07-05T22:16:18+00:00\"\n\t}],\n\t\"totalFilled\": 80,\n\t\"open\": true\n}")))
+
+
     val sut = StarFighterClient()
-    val order = Order("act", "HPYEX", "IBM", 30000, 100, Directions.Buy, OrderTypes.Limit)
 
     // when
-    sut.execute(order)
+    val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
 
     // then
-    verify(postRequestedFor(urlEqualTo("/ob/api"))
-      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth"))
-      .withRequestBody(containing("lalala")))
+
+    whenReady(response) { r =>
+
+      val ts = new DateTime(2015, 7, 5, 22, 16, 18)
+
+      val expected = NewOrderResponse(ok = true, Right(
+        NewOrderData( "FAC",
+          "OGEX",
+          Directions.Buy,
+          100,
+          20,
+          OrderTypes.Limit,
+          12345,
+          "OGB12345",
+          ts,
+          List(Fill(5050, 50, ts)),
+          80,
+          open = true)))
+
+      r should equal(expected)
+    }
   }
 
+  it should "post an order and parse sad response for stocks on venue" in {
+    // given
+    val newOrder = NewOrder("OGB12345", "OGEX", "FAC", 5100, 100, Directions.Buy, OrderTypes.Limit)
+
+    val path = "/venues/OGEX/stocks/FAC/orders"
+    stubFor(post(urlEqualTo(path))
+      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"A descriptive error message telling you that the order you attempted to place was invalid and not processed by the stock exchange.\"\n}")))
+
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
+
+    // then
+    whenReady(response) { r =>
+      val expected = NewOrderResponse(ok = false, Left(ErrorMessage("A descriptive error message telling you that the order you attempted to place was invalid and not processed by the stock exchange.")))
+      r should equal(expected)
+    }
+  }
+
+  it should "post an order and parse sad 400 response for stocks on venue" in {
+    // given
+    val newOrder = NewOrder("OGB12345", "OGEX", "FAC", 5100, 100, Directions.Buy, OrderTypes.Limit)
+
+    val path = "/venues/OGEX/stocks/FAC/orders"
+    stubFor(post(urlEqualTo(path))
+      .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .willReturn(
+        aResponse()
+          .withStatus(400)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"You provided symbol FOO and venue BAR in the JSON request but these did not match your URL.\"\n}")))
+
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.placeOrderForStock("OGEX", "FAC", newOrder)
+
+    // then
+    whenReady(response) { r =>
+      val expected = NewOrderResponse(ok = false, Left(ErrorMessage("You provided symbol FOO and venue BAR in the JSON request but these did not match your URL.")))
+      r should equal(expected)
+    }
+  }
 
 }
