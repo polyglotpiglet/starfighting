@@ -336,4 +336,47 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     }
   }
 
+  it should "return a quote for a stock on a venue" in {
+    // given
+    val path = "/venues/OGEX/stocks/FAC/quote"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(200)
+          .withBody("{\n    \"ok\": true,\n    \"symbol\": \"FAC\",\n    \"venue\": \"OGEX\",\n    \"bid\": 5100,\n    \"ask\": 5125,\n    \"bidSize\": 392,\n    \"askSize\": 711,\n    \"bidDepth\": 2748, \n    \"askDepth\": 2237, \n    \"last\": 5125, \n    \"lastSize\": 52, \n    \"lastTrade\": \"2015-07-13T05:38:17.33640392Z\", \n    \"quoteTime\": \"2015-07-13T05:38:17.33640392Z\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.getQuoteForStock("OGEX", "FAC")
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = true)
+      val stockQuoteData = new StockQuoteData("FAC", "OGEX", 5100, 5125, 392, 711, 2748, 2237, 5125, 52, new DateTime(2015, 7, 13, 5, 38,17, 336), new DateTime(2015, 7, 13, 5, 38,17, 336))
+      r.data.right.get should equal(stockQuoteData)
+    }
+  }
+
+  it should "return a error when looking for stock quote with json error" in {
+    // given
+    val path = "/venues/OGEX/stocks/FAC/quote"
+    stubFor(get(urlEqualTo(path))
+      .willReturn(
+        aResponse()
+          .withStatus(404)
+          .withBody("{\n  \"ok\": false,\n  \"error\": \"symbol FOO does not exist on venue BAREX\"\n}")))
+
+    val sut = StarFighterClient()
+
+    // when
+    val response = sut.getQuoteForStock("OGEX", "FAC")
+
+    // then
+    whenReady(response) { r =>
+      r.ok should be(right = false)
+      r.data.left.get.msg should equal("symbol FOO does not exist on venue BAREX")
+    }
+  }
+
 }

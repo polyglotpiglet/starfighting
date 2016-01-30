@@ -406,5 +406,72 @@ object NewOrderResponseProtocol extends DefaultJsonProtocol {
   }
 }
 
+/* -----------------------------------------------------------------
+    Getting a quote for a stock: data model and serialisation protocols
+   ----------------------------------------------------------------- */
 
+/*
+{
+    "ok": true,
+    "symbol": "FAC",
+    "venue": "OGEX",
+    "bid": 5100,
+    "ask": 5125,
+    "bidSize": 392,
+    "askSize": 711,
+    "bidDepth": 2748,
+    "askDepth": 2237,
+    "last": 5125,
+    "lastSize": 52,
+    "lastTrade": "2015-07-13T05:38:17.33640392Z",
+    "quoteTime": "2015-07-13T05:38:17.33640392Z"
+}
+ */
 
+case class StockQuoteData(symbol: String,
+                          venue: String,
+                          bid: Int,
+                          ask: Int,
+                          bidSize: Int,
+                          askSize: Int,
+                          bidDepth: Int,
+                          askDepth: Int,
+                          last: Int,
+                          lastSize: Int,
+                          lastTrade: DateTime,
+                          quoteTime: DateTime) extends Data
+
+case class StockQuoteResponse(override val ok: Boolean,
+                              override val data: Either[ErrorMessage, StockQuoteData]) extends StarFighterResponse
+
+object StockQuoteDataProtocol extends DefaultJsonProtocol {
+  import FractionalSecondsDateTimeProtocol._
+  implicit val stockQuoteDataFormat = jsonFormat12(StockQuoteData)
+}
+
+object StockQuoteResponseProtocol extends DefaultJsonProtocol {
+  import StockQuoteDataProtocol._
+
+  implicit object stockQuoteResponseProtocol extends RootJsonFormat[StockQuoteResponse] {
+    override def write(obj: StockQuoteResponse): JsValue =  {
+      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
+        case Left(e) => Map("error" -> JsString(e.msg))
+        case Right(d) => d.toJson.asJsObject.fields
+      }))
+    }
+
+    override def read(json: JsValue): StockQuoteResponse = {
+      val fields = json.asJsObject.fields
+      (fields.get("ok"), fields.get("error")) match {
+        case (Some(JsBoolean(b)), Some(JsString(e))) => StockQuoteResponse(b, Left(ErrorMessage(e)))
+        case (Some(JsBoolean(b)), None) => {
+          val dataFields = fields.filter(_._1 != "ok")
+          val dataObj = JsObject(dataFields)
+          val data = dataObj.convertTo[StockQuoteData]
+          StockQuoteResponse(b, Right(data))
+        }
+        case _ => deserializationError("Cannot deserialize NewOrderResponse")
+      }
+    }
+  }
+}
