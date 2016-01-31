@@ -252,11 +252,11 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val path = "/venues/OGEX/stocks/FAC/orders"
     stubFor(post(urlEqualTo(path))
       .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
-      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"orderType\":\"limit\",\"venue\":\"OGEX\"}"))
       .willReturn(
         aResponse()
           .withStatus(200)
-          .withBody("{\n\t\"ok\": true,\n\t\"symbol\": \"FAC\",\n\t\"venue\": \"OGEX\",\n\t\"direction\": \"buy\",\n\t\"originalQty\": 100,\n\t\"qty\": 20,\n\t\"price\": 5100,\n\t\"type\": \"limit\",\n\t\"id\": 12345,\n\t\"account\": \"OGB12345\",\n\t\"ts\": \"2015-07-05T22:16:18+00:00\",\n\t\"fills\": [{\n\t\t\"price\": 5050,\n\t\t\"qty\": 50,\n\t\t\"ts\": \"2015-07-05T22:16:18+00:00\"\n\t}],\n\t\"totalFilled\": 80,\n\t\"open\": true\n}")))
+          .withBody("{\n\t\"ok\": true,\n\t\"symbol\": \"FAC\",\n\t\"venue\": \"OGEX\",\n\t\"direction\": \"buy\",\n\t\"originalQty\": 100,\n\t\"qty\": 20,\n\t\"price\": 5100,\n\t\"orderType\": \"limit\",\n\t\"id\": 12345,\n\t\"account\": \"OGB12345\",\n\t\"ts\": \"2015-07-05T22:16:18+00:00\",\n\t\"fills\": [{\n\t\t\"price\": 5050,\n\t\t\"qty\": 50,\n\t\t\"ts\": \"2015-07-05T22:16:18+00:00\"\n\t}],\n\t\"totalFilled\": 80,\n\t\"open\": true\n}")))
 
 
     val sut = StarFighterClient()
@@ -295,7 +295,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val path = "/venues/OGEX/stocks/FAC/orders"
     stubFor(post(urlEqualTo(path))
       .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
-      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"orderType\":\"limit\",\"venue\":\"OGEX\"}"))
       .willReturn(
         aResponse()
           .withStatus(200)
@@ -321,7 +321,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     val path = "/venues/OGEX/stocks/FAC/orders"
     stubFor(post(urlEqualTo(path))
       .withHeader("X-Starfighter-Authorization", equalTo("dummy_auth")) // from config
-      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"type\":\"limit\",\"venue\":\"OGEX\"}"))
+      .withRequestBody(equalTo("{\"stock\":\"FAC\",\"price\":5100,\"direction\":\"buy\",\"qty\":100,\"account\":\"OGB12345\",\"orderType\":\"limit\",\"venue\":\"OGEX\"}"))
       .willReturn(
         aResponse()
           .withStatus(400)
@@ -357,7 +357,7 @@ class StarFighterClientSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     // then
     whenReady(response) { r =>
       r.ok should be(right = true)
-      val stockQuoteData = new StockQuoteData("FAC", "OGEX", 5100, 5125, 392, 711, 2748, 2237, 5125, 52, new DateTime(2015, 7, 13, 5, 38,17, 336), new DateTime(2015, 7, 13, 5, 38,17, 336))
+      val stockQuoteData = new StockQuoteData("FAC", "OGEX", Some(5100), Some(5125), Some(392), Some(711), Some(2748), Some(2237), Some(5125), Some(52), Some(new DateTime(2015, 7, 13, 5, 38,17, 336)), new DateTime(2015, 7, 13, 5, 38,17, 336))
       r.data.right.get should equal(stockQuoteData)
     }
   }

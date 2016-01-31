@@ -32,24 +32,27 @@ object FractionalSecondsDateTimeProtocol extends DefaultJsonProtocol {
       JsString(pattern.print(obj))
 
     override def read(json: JsValue): DateTime = json match {
-      case JsString(s) => pattern.parseDateTime(s.substring(0,23)) // todo hack til i can handle fractional seconds piglet
+      case JsString(s) if s(19) != '+' =>
+        pattern.parseDateTime(s.substring(0,23)) // todo hack til i can handle fractional seconds piglet
+      case JsString(s)=>
+        DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss").parseDateTime(s.substring(0,19)) // todo hack til i can handle fractional seconds piglet
       case _ => deserializationError("Cannot deserialize DateTime")
     }
   }
 }
 
-object ISO8601DateTimeProtocol extends DefaultJsonProtocol {
-  implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
-    private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss")
-    override def write(obj: DateTime): JsValue =
-      JsString(pattern.print(obj))
-
-    override def read(json: JsValue): DateTime = json match {
-      case JsString(s) => pattern.parseDateTime(s.takeWhile(_ != '+')) // todo hack becuase i dont know what it is piglet
-      case _ => deserializationError("Cannot deserialize DateTime")
-    }
-  }
-}
+//object ISO8601DateTimeProtocol extends DefaultJsonProtocol {
+//  implicit object dateTimeFormat extends RootJsonFormat[DateTime] {
+//    private val pattern = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss")
+//    override def write(obj: DateTime): JsValue =
+//      JsString(pattern.print(obj))
+//
+//    override def read(json: JsValue): DateTime = json match {
+//      case JsString(s) => pattern.parseDateTime(s.takeWhile(_ != '+')) // todo hack becuase i dont know what it is piglet
+//      case _ => deserializationError("Cannot deserialize DateTime")
+//    }
+//  }
+//}
 
 /* -----------------------------------------------------------------
     API Heartbeating data model and serialisation protocols
@@ -337,7 +340,7 @@ object OrderTypeProtocol extends DefaultJsonProtocol {
 case class Fill(price: Int, qty: Int, ts: DateTime)
 
 object FillProtocol extends DefaultJsonProtocol {
-  import ISO8601DateTimeProtocol._
+  import FractionalSecondsDateTimeProtocol._
   implicit val fillFormat = jsonFormat3(Fill)
 }
 
@@ -354,7 +357,7 @@ object NewOrderProtocol extends DefaultJsonProtocol {
   import OrderTypeProtocol._
   import DirectionProtocol._
 
-  implicit val newOrderFormat = jsonFormat(NewOrder.apply, "account", "venue", "stock", "price", "qty", "direction", "type")
+  implicit val newOrderFormat = jsonFormat7(NewOrder)
 
 }
 
@@ -374,9 +377,9 @@ case class NewOrderData(symbol: String,
 object NewOrderDataProtocol extends DefaultJsonProtocol {
   import OrderTypeProtocol._
   import DirectionProtocol._
-  import ISO8601DateTimeProtocol._
+  import FractionalSecondsDateTimeProtocol._
   import FillProtocol._
-  implicit val newOrderDataFormat = jsonFormat(NewOrderData.apply, "symbol", "venue", "direction", "originalQty", "qty", "type", "id", "account", "ts", "fills", "totalFilled", "open")
+  implicit val newOrderDataFormat = jsonFormat12(NewOrderData)
 }
 
 case class NewOrderResponse(override val ok: Boolean,
@@ -416,15 +419,15 @@ object NewOrderResponseProtocol extends DefaultJsonProtocol {
 
 case class StockQuoteData(symbol: String,
                           venue: String,
-                          bid: Int,
-                          ask: Int,
-                          bidSize: Int,
-                          askSize: Int,
-                          bidDepth: Int,
-                          askDepth: Int,
-                          last: Int,
-                          lastSize: Int,
-                          lastTrade: DateTime,
+                          bid: Option[Int],
+                          ask: Option[Int],
+                          bidSize: Option[Int],
+                          askSize: Option[Int],
+                          bidDepth: Option[Int],
+                          askDepth: Option[Int],
+                          last: Option[Int],
+                          lastSize: Option[Int],
+                          lastTrade: Option[DateTime],
                           quoteTime: DateTime) extends Data
 
 case class StockQuoteResponse(override val ok: Boolean,

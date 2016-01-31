@@ -42,7 +42,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def stocksOnAVenue(venue: String): Future[StocksInfoResponse] = {
     import com.ojha.client.StocksInfoResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/stocks"
-    val request = url(urlPath)
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Checking stocks on venue $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[StocksInfoResponse])
@@ -51,7 +51,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def orderBookForStockOnVenue(venue: String, stock: String): Future[OrderBookResponse] = {
     import com.ojha.client.OrderBookResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock"
-    val request = url(urlPath)
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Checking orderbook for stock on venue $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[OrderBookResponse])
@@ -71,7 +71,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def getQuoteForStock(venue: String, stock: String): Future[StockQuoteResponse] = {
     import StockQuoteResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/quote"
-    val request = url(urlPath)
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Getting quote for stock $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[StockQuoteResponse])
@@ -80,7 +80,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def getStatusForOrder(venue: String, stock: String, id: Int): Future[OrderStatusResponse]= {
     import OrderStatusResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders/$id"
-    val request = url(urlPath)
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Status for order $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[OrderStatusResponse])
@@ -90,7 +90,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def cancelOrder(venue: String, stock: String, id: Int): Future[OrderStatusResponse] = {
     import OrderStatusResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders/$id"
-    val request = url(urlPath).DELETE
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey).DELETE
     logger.info(s"Cancel order $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[OrderStatusResponse])
@@ -99,7 +99,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def getAllOrderStatuses(venue: String, account: String): Future[AllOrderStatusesResponse] = {
     import AllOrderStatusResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/accounts/$account/orders"
-    val request = url(urlPath)
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Getting all orders on venue for an account $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[AllOrderStatusesResponse])
@@ -109,7 +109,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
   def getAllOrderStatusesForStock(venue: String, stock: String, account: String): Future[AllOrderStatusesResponse] = {
     import AllOrderStatusResponseProtocol._
     val urlPath = s"$baseurl/venues/$venue/accounts/$account/stocks/$stock/orders"
-    val request = url(urlPath)
+    val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Getting all orders on venue for a stock/account $urlPath")
     val result = Http(request)
     result.map(_.getResponseBody.parseJson.convertTo[AllOrderStatusesResponse])
