@@ -26,8 +26,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     import com.ojha.client.HeartbeatProtocol._
     val request = url(s"$baseurl/heartbeat")
     logger.info(s"Heartbeating $baseurl/heartbeat")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[Heartbeat])
+    execute[Heartbeat](request)
   }
 
   def heartBeatVenue(venue: String): Future[VenueHeartbeatResponse] = {
@@ -35,8 +34,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/heartbeat"
     val request = url(urlPath)
     logger.info(s"Heartbeating venue $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[VenueHeartbeatResponse])
+    execute[VenueHeartbeatResponse](request)
   }
 
   def stocksOnAVenue(venue: String): Future[StocksInfoResponse] = {
@@ -44,8 +42,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/stocks"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Checking stocks on venue $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[StocksInfoResponse])
+    execute[StocksInfoResponse](request)
   }
 
   def orderBookForStockOnVenue(venue: String, stock: String): Future[OrderBookResponse] = {
@@ -53,8 +50,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Checking orderbook for stock on venue $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[OrderBookResponse])
+    execute[OrderBookResponse](request)
   }
 
   def placeOrderForStock(venue: String, stock: String, order: NewOrder): Future[NewOrderResponse] = {
@@ -64,8 +60,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders"
     val request = url(urlPath).setBody(orderJson).setHeader("X-Starfighter-Authorization", apikey).POST
     logger.info(s"Posting an order for stock at url: $urlPath, order:$orderJson ")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[NewOrderResponse])
+    execute[NewOrderResponse](request)
   }
 
   def getQuoteForStock(venue: String, stock: String): Future[StockQuoteResponse] = {
@@ -73,8 +68,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/quote"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Getting quote for stock $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[StockQuoteResponse])
+    execute[StockQuoteResponse](request)
   }
 
   def getStatusForOrder(venue: String, stock: String, id: Int): Future[OrderStatusResponse]= {
@@ -82,9 +76,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders/$id"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Status for order $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[OrderStatusResponse])
-
+    execute[OrderStatusResponse](request)
   }
 
   def cancelOrder(venue: String, stock: String, id: Int): Future[OrderStatusResponse] = {
@@ -92,8 +84,7 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/stocks/$stock/orders/$id"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey).DELETE
     logger.info(s"Cancel order $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[OrderStatusResponse])
+    execute[OrderStatusResponse](request)
   }
 
   def getAllOrderStatuses(venue: String, account: String): Future[AllOrderStatusesResponse] = {
@@ -101,8 +92,8 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/accounts/$account/orders"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Getting all orders on venue for an account $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[AllOrderStatusesResponse])
+    execute[AllOrderStatusesResponse](request)
+
   }
 
 
@@ -111,10 +102,14 @@ class StarFighterClient(baseurl: String, apikey: String) extends LazyLogging {
     val urlPath = s"$baseurl/venues/$venue/accounts/$account/stocks/$stock/orders"
     val request = url(urlPath).setHeader("X-Starfighter-Authorization", apikey)
     logger.info(s"Getting all orders on venue for a stock/account $urlPath")
-    val result = Http(request)
-    result.map(_.getResponseBody.parseJson.convertTo[AllOrderStatusesResponse])
+    execute[AllOrderStatusesResponse](request)
   }
 
+
+  private def execute[T](request: Req)(implicit format: JsonFormat[T]): Future[T] = {
+    val result = Http(request)
+    result.map(_.getResponseBody.parseJson.convertTo[T])
+  }
 
   def shutdown(): Unit = {
     logger.info("Shutting down StarFighterClient")
