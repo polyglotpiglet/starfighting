@@ -248,33 +248,14 @@ case class OrderBookResponse(override val ok: Boolean,
                              override val data: Either[ErrorMessage, OrderBookData]) extends StarFighterResponse
 
 object OrderBookResponseProtocol extends DefaultJsonProtocol {
-
-  import OrderBookDataProtocol._
-
-  implicit object orderBookResponseFormat extends RootJsonFormat[OrderBookResponse] {
-    override def write(obj: OrderBookResponse): JsValue =  {
-      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
-        case Left(e) => Map("error" -> JsString(e.msg))
-        case Right(d) => d.toJson.asJsObject.fields
-      }))
-    }
-
-    override def read(json: JsValue): OrderBookResponse = {
-      val fields = json.asJsObject.fields
-      (fields.get("ok"), fields.get("error")) match {
-        case (Some(JsBoolean(b)), Some(JsString(e))) => OrderBookResponse(b, Left(ErrorMessage(e)))
-        case (Some(JsBoolean(b)), None) => {
-          val dataFields = fields.filter(_._1 != "ok")
-          val dataObj = JsObject(dataFields)
-          val data = dataObj.convertTo[OrderBookData]
-          OrderBookResponse(b, Right(data))
-        }
-        case _ => deserializationError("Cannot deserialze OrderBookResponse")
-      }
-    }
+  implicit object orderBookResponseFormat extends RootJsonFormat[OrderBookResponse]  {
+    import OrderBookDataProtocol._
+    override def read(json: JsValue): OrderBookResponse
+    = Rawr.read[OrderBookResponse, OrderBookData](json, (b: Boolean, e: Either[ErrorMessage, OrderBookData]) => new OrderBookResponse(b,e))
+    override def write(obj: OrderBookResponse): JsValue
+    = Rawr.write[OrderBookResponse, OrderBookData](obj)
   }
 }
-
 
 /* -----------------------------------------------------------------
     OrderDirection
@@ -387,29 +368,12 @@ case class NewOrderResponse(override val ok: Boolean,
 
 
 object NewOrderResponseProtocol extends DefaultJsonProtocol {
-  import NewOrderDataProtocol._
-
-  implicit object newOrderResponseProtocol extends RootJsonFormat[NewOrderResponse] {
-    override def write(obj: NewOrderResponse): JsValue =  {
-      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
-        case Left(e) => Map("error" -> JsString(e.msg))
-        case Right(d) => d.toJson.asJsObject.fields
-      }))
-    }
-
-    override def read(json: JsValue): NewOrderResponse = {
-      val fields = json.asJsObject.fields
-      (fields.get("ok"), fields.get("error")) match {
-        case (Some(JsBoolean(b)), Some(JsString(e))) => NewOrderResponse(b, Left(ErrorMessage(e)))
-        case (Some(JsBoolean(b)), None) => {
-          val dataFields = fields.filter(_._1 != "ok")
-          val dataObj = JsObject(dataFields)
-          val data = dataObj.convertTo[NewOrderData]
-          NewOrderResponse(b, Right(data))
-        }
-        case _ => deserializationError("Cannot deserialize NewOrderResponse")
-      }
-    }
+  implicit object newOrderResponseProtocol extends RootJsonFormat[NewOrderResponse]  {
+    import NewOrderDataProtocol._
+    override def read(json: JsValue): NewOrderResponse
+      = Rawr.read[NewOrderResponse, NewOrderData](json, (b: Boolean, e: Either[ErrorMessage, NewOrderData]) => new NewOrderResponse(b,e))
+    override def write(obj: NewOrderResponse): JsValue
+      = Rawr.write[NewOrderResponse, NewOrderData](obj)
   }
 }
 
@@ -439,32 +403,14 @@ object StockQuoteDataProtocol extends DefaultJsonProtocol {
 }
 
 object StockQuoteResponseProtocol extends DefaultJsonProtocol {
-  import StockQuoteDataProtocol._
-
-  implicit object stockQuoteResponseProtocol extends RootJsonFormat[StockQuoteResponse] {
-    override def write(obj: StockQuoteResponse): JsValue =  {
-      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
-        case Left(e) => Map("error" -> JsString(e.msg))
-        case Right(d) => d.toJson.asJsObject.fields
-      }))
+    implicit object stockQuoteResponseProtocol extends RootJsonFormat[StockQuoteResponse]  {
+      import StockQuoteDataProtocol._
+      override def read(json: JsValue): StockQuoteResponse
+        = Rawr.read[StockQuoteResponse, StockQuoteData](json, (b: Boolean, e: Either[ErrorMessage, StockQuoteData]) => new StockQuoteResponse(b,e))
+      override def write(obj: StockQuoteResponse): JsValue
+        = Rawr.write[StockQuoteResponse, StockQuoteData](obj)
     }
-
-    override def read(json: JsValue): StockQuoteResponse = {
-      val fields = json.asJsObject.fields
-      (fields.get("ok"), fields.get("error")) match {
-        case (Some(JsBoolean(b)), Some(JsString(e))) => StockQuoteResponse(b, Left(ErrorMessage(e)))
-        case (Some(JsBoolean(b)), None) => {
-          val dataFields = fields.filter(_._1 != "ok")
-          val dataObj = JsObject(dataFields)
-          val data = dataObj.convertTo[StockQuoteData]
-          StockQuoteResponse(b, Right(data))
-        }
-        case _ => deserializationError("Cannot deserialize StockQuoteResponse")
-      }
-    }
-  }
 }
-
 
 /* -----------------------------------------------------------------
     Getting status for an order: data model and serialisation protocols
@@ -496,29 +442,12 @@ object OrderStatusDataProtocol extends DefaultJsonProtocol {
 }
 
 object OrderStatusResponseProtocol extends DefaultJsonProtocol {
-  import OrderStatusDataProtocol._
-
-  implicit object orderStatusResponseProtocol extends RootJsonFormat[OrderStatusResponse] {
-    override def write(obj: OrderStatusResponse): JsValue =  {
-      JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
-        case Left(e) => Map("error" -> JsString(e.msg))
-        case Right(d) => d.toJson.asJsObject.fields
-      }))
-    }
-
-    override def read(json: JsValue): OrderStatusResponse = {
-      val fields = json.asJsObject.fields
-      (fields.get("ok"), fields.get("error")) match {
-        case (Some(JsBoolean(b)), Some(JsString(e))) => OrderStatusResponse(b, Left(ErrorMessage(e)))
-        case (Some(JsBoolean(b)), None) => {
-          val dataFields = fields.filter(_._1 != "ok")
-          val dataObj = JsObject(dataFields)
-          val data = dataObj.convertTo[OrderStatusData]
-          OrderStatusResponse(b, Right(data))
-        }
-        case _ => deserializationError("Cannot deserialize OrderStatusResponse")
-      }
-    }
+  implicit object orderStatusResponseProtocol extends RootJsonFormat[OrderStatusResponse]  {
+    import OrderStatusDataProtocol._
+    override def read(json: JsValue): OrderStatusResponse
+      = Rawr.read[OrderStatusResponse, OrderStatusData](json, (b: Boolean, e: Either[ErrorMessage, OrderStatusData]) => new OrderStatusResponse(b,e))
+    override def write(obj: OrderStatusResponse): JsValue
+      = Rawr.write[OrderStatusResponse, OrderStatusData](obj)
   }
 }
  /* -----------------------------------------------------------------
@@ -532,33 +461,46 @@ object OrderStatusResponseProtocol extends DefaultJsonProtocol {
 
   object AllOrderStatusesDataProtocol extends DefaultJsonProtocol {
     import OrderStatusDataProtocol._
-    implicit val allOrderStatusFormat = jsonFormat2(AllOrderStatusesData)
+    implicit val allOrderStatusFormat: RootJsonFormat[AllOrderStatusesData] = jsonFormat2(AllOrderStatusesData)
   }
 
   object AllOrderStatusResponseProtocol extends DefaultJsonProtocol {
 
-    import AllOrderStatusesDataProtocol._
-
-    implicit object allorderStatusResponseFormat extends RootJsonFormat[AllOrderStatusesResponse] {
-      override def write(obj: AllOrderStatusesResponse): JsValue = {
-        JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
-          case Left(e) => Map("error" -> JsString(e.msg))
-          case Right(d) => d.toJson.asJsObject.fields
-        }))
-      }
-
-      override def read(json: JsValue): AllOrderStatusesResponse = {
-        val fields = json.asJsObject.fields
-        (fields.get("ok"), fields.get("error")) match {
-          case (Some(JsBoolean(b)), Some(JsString(e))) => AllOrderStatusesResponse(b, Left(ErrorMessage(e)))
-          case (Some(JsBoolean(b)), None) => {
-            val dataFields = fields.filter(_._1 != "ok")
-            val dataObj = JsObject(dataFields)
-            val data = dataObj.convertTo[AllOrderStatusesData]
-            AllOrderStatusesResponse(b, Right(data))
-          }
-          case _ => deserializationError("Cannot deserialize AllOrderStatusesResponse")
-        }
-      }
+    implicit object allorderStatusResponseFormat extends RootJsonFormat[AllOrderStatusesResponse]  {
+      import AllOrderStatusesDataProtocol._
+      override def read(json: JsValue): AllOrderStatusesResponse
+        = Rawr.read[AllOrderStatusesResponse, AllOrderStatusesData](json, (b: Boolean, e: Either[ErrorMessage, AllOrderStatusesData]) => new AllOrderStatusesResponse(b,e))
+      override def write(obj: AllOrderStatusesResponse): JsValue
+        = Rawr.write[AllOrderStatusesResponse, AllOrderStatusesData](obj)
     }
   }
+
+
+object Rawr {
+
+  def write[T <: StarFighterResponse, U <: Data](obj: T)
+                                                (implicit dataFormat: RootJsonFormat[U] ): JsValue = {
+    JsObject(Map("ok" -> JsBoolean(obj.ok)) ++ (obj.data match {
+      case Left(e) => Map("error" -> JsString(e.msg))
+      case Right(d) => d.asInstanceOf[U].toJson.asJsObject.fields
+    }))
+  }
+
+  def read[T <: StarFighterResponse, U <: Data](json: JsValue,
+                                                f: (Boolean, Either[ErrorMessage, U]) => T)
+                                               (implicit dataFormat: RootJsonFormat[U]): T = {
+    val fields = json.asJsObject.fields
+    (fields.get("ok"), fields.get("error")) match {
+      case (Some(JsBoolean(b)), Some(JsString(e))) => f(b, Left(ErrorMessage(e)))
+      case (Some(JsBoolean(b)), None) => {
+        val dataFields = fields.filter(_._1 != "ok")
+        val dataObj = JsObject(dataFields)
+        val data = dataObj.convertTo[U]
+        f(b, Right(data))
+      }
+      case _ => deserializationError(s"Deserialization error")
+    }
+  }
+
+}
+
