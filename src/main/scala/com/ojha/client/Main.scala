@@ -1,12 +1,12 @@
 package com.ojha.client
 
-import com.ojha.tradingstrategies.ChockABlock
+import com.ojha.tradingstrategies.{SellSide, ChockABlock}
 
 /**
  * Created by alexandra on 05/01/16.
  */
 object Main extends App {
 
-  val chockablock = new ChockABlock()
-  chockablock.execute()
+  val strategy = new SellSide()
+  strategy.execute()
 }
